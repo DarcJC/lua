@@ -145,21 +145,21 @@ static int llvm_emit_constant(LLVMContext *ctx, const TValue *k) {
       break;
     case LUA_VNUMINT:
       llvm_emit(ctx, "  %%r%d = insertvalue %%LuaValue zeroinitializer, i32 3, 0\n", reg);
-      llvm_emit(ctx, "  %%r%d_val = bitcast i64 %lld to [8 x i8]\n", reg, (long long)ivalue(k));
+      llvm_emit(ctx, "  %%temp%d = alloca i64\n", reg);
+      llvm_emit(ctx, "  store i64 %lld, i64* %%temp%d\n", (long long)ivalue(k), reg);
+      llvm_emit(ctx, "  %%temp%d_cast = bitcast i64* %%temp%d to [8 x i8]*\n", reg, reg);
+      llvm_emit(ctx, "  %%r%d_val = load [8 x i8], [8 x i8]* %%temp%d_cast\n", reg, reg);
       llvm_emit(ctx, "  %%r%d_final = insertvalue %%LuaValue %%r%d, [8 x i8] %%r%d_val, 1\n", 
                 reg, reg, reg);
-      reg = ctx->reg_counter++;
-      llvm_emit(ctx, "  %%r%d = alloca %%LuaValue\n", reg);
-      llvm_emit(ctx, "  store %%LuaValue %%r%d_final, %%LuaValue* %%r%d\n", reg-1, reg);
       break;
     case LUA_VNUMFLT:
       llvm_emit(ctx, "  %%r%d = insertvalue %%LuaValue zeroinitializer, i32 4, 0\n", reg);
-      llvm_emit(ctx, "  %%r%d_val = bitcast double %g to [8 x i8]\n", reg, fltvalue(k));
+      llvm_emit(ctx, "  %%tempf%d = alloca double\n", reg);
+      llvm_emit(ctx, "  store double %g, double* %%tempf%d\n", fltvalue(k), reg);
+      llvm_emit(ctx, "  %%tempf%d_cast = bitcast double* %%tempf%d to [8 x i8]*\n", reg, reg);
+      llvm_emit(ctx, "  %%r%d_val = load [8 x i8], [8 x i8]* %%tempf%d_cast\n", reg, reg);
       llvm_emit(ctx, "  %%r%d_final = insertvalue %%LuaValue %%r%d, [8 x i8] %%r%d_val, 1\n", 
                 reg, reg, reg);
-      reg = ctx->reg_counter++;
-      llvm_emit(ctx, "  %%r%d = alloca %%LuaValue\n", reg);
-      llvm_emit(ctx, "  store %%LuaValue %%r%d_final, %%LuaValue* %%r%d\n", reg-1, reg);
       break;
     default:
       /* For now, treat other types as nil */
@@ -209,7 +209,10 @@ static void llvm_emit_instruction(LLVMContext *ctx, Instruction i, int pc) {
       int sbx = GETARG_sBx(i);
       int result_reg = ctx->reg_counter++;
       llvm_emit(ctx, "  %%r%d = insertvalue %%LuaValue zeroinitializer, i32 3, 0\n", result_reg);
-      llvm_emit(ctx, "  %%r%d_val = bitcast i64 %d to [8 x i8]\n", result_reg, sbx);
+      llvm_emit(ctx, "  %%temp%d = alloca i64\n", result_reg);
+      llvm_emit(ctx, "  store i64 %d, i64* %%temp%d\n", sbx, result_reg);
+      llvm_emit(ctx, "  %%temp%d_cast = bitcast i64* %%temp%d to [8 x i8]*\n", result_reg, result_reg);
+      llvm_emit(ctx, "  %%r%d_val = load [8 x i8], [8 x i8]* %%temp%d_cast\n", result_reg, result_reg);
       llvm_emit(ctx, "  %%r%d_final = insertvalue %%LuaValue %%r%d, [8 x i8] %%r%d_val, 1\n", 
                 result_reg, result_reg, result_reg);
       break;
@@ -257,7 +260,10 @@ static void llvm_emit_instruction(LLVMContext *ctx, Instruction i, int pc) {
       int sc = GETARG_sC(i);
       int result_reg = ctx->reg_counter++;
       llvm_emit(ctx, "  %%r%d_imm = insertvalue %%LuaValue zeroinitializer, i32 3, 0\n", result_reg);
-      llvm_emit(ctx, "  %%r%d_imm_val = bitcast i64 %d to [8 x i8]\n", result_reg, sc);
+      llvm_emit(ctx, "  %%temp%d = alloca i64\n", result_reg);
+      llvm_emit(ctx, "  store i64 %d, i64* %%temp%d\n", sc, result_reg);
+      llvm_emit(ctx, "  %%temp%d_cast = bitcast i64* %%temp%d to [8 x i8]*\n", result_reg, result_reg);
+      llvm_emit(ctx, "  %%r%d_imm_val = load [8 x i8], [8 x i8]* %%temp%d_cast\n", result_reg, result_reg);
       llvm_emit(ctx, "  %%r%d_imm_final = insertvalue %%LuaValue %%r%d_imm, [8 x i8] %%r%d_imm_val, 1\n", 
                 result_reg, result_reg, result_reg);
       llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_add(%%LuaValue %%r%d, %%LuaValue %%r%d_imm_final)\n", 
