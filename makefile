@@ -99,9 +99,14 @@ LIB_O=	lbaselib.o ldblib.o liolib.o lmathlib.o loslib.o ltablib.o lstrlib.o \
 LUA_T=	lua
 LUA_O=	lua.o
 
+LUAC_T= luac
+LUAC_O= luac.o
 
-ALL_T= $(CORE_T) $(LUA_T)
-ALL_O= $(CORE_O) $(LUA_O) $(AUX_O) $(LIB_O)
+LUA2LLVMIR_T= lua2llvmir
+LUA2LLVMIR_O= lua2llvmir.o
+
+ALL_T= $(CORE_T) $(LUA_T) $(LUAC_T) $(LUA2LLVMIR_T)
+ALL_O= $(CORE_O) $(LUA_O) $(LUAC_O) $(LUA2LLVMIR_O) $(AUX_O) $(LIB_O)
 ALL_A= $(CORE_T)
 
 all:	$(ALL_T)
@@ -117,6 +122,12 @@ $(CORE_T): $(CORE_O) $(AUX_O) $(LIB_O)
 
 $(LUA_T): $(LUA_O) $(CORE_T)
 	$(CC) -o $@ $(MYLDFLAGS) $(LUA_O) $(CORE_T) $(LIBS) $(MYLIBS) $(DL)
+
+$(LUAC_T): $(LUAC_O) $(CORE_T)
+	$(CC) -o $@ $(MYLDFLAGS) $(LUAC_O) $(CORE_T) $(LIBS) $(DL)
+
+$(LUA2LLVMIR_T): $(LUA2LLVMIR_O) $(CORE_T)
+	$(CC) -o $@ $(MYLDFLAGS) $(LUA2LLVMIR_O) $(CORE_T) $(LIBS) $(DL)
 
 
 clean:
