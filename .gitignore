@@ -13,3 +13,4 @@ testes/libs/all
 
 temp
 lua
+test_lua2llvmir

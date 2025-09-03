@@ -228,6 +228,56 @@ static void llvm_emit_instruction(LLVMContext *ctx, Instruction i, int pc) {
                 result_reg, b, c);
       break;
     }
+    case OP_SUB: {
+      int b = GETARG_B(i);
+      int c = GETARG_C(i);
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_sub(%%LuaValue %%r%d, %%LuaValue %%r%d)\n", 
+                result_reg, b, c);
+      break;
+    }
+    case OP_MUL: {
+      int b = GETARG_B(i);
+      int c = GETARG_C(i);
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_mul(%%LuaValue %%r%d, %%LuaValue %%r%d)\n", 
+                result_reg, b, c);
+      break;
+    }
+    case OP_DIV: {
+      int b = GETARG_B(i);
+      int c = GETARG_C(i);
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_div(%%LuaValue %%r%d, %%LuaValue %%r%d)\n", 
+                result_reg, b, c);
+      break;
+    }
+    case OP_ADDI: {
+      int b = GETARG_B(i);
+      int sc = GETARG_sC(i);
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  %%r%d_imm = insertvalue %%LuaValue zeroinitializer, i32 3, 0\n", result_reg);
+      llvm_emit(ctx, "  %%r%d_imm_val = bitcast i64 %d to [8 x i8]\n", result_reg, sc);
+      llvm_emit(ctx, "  %%r%d_imm_final = insertvalue %%LuaValue %%r%d_imm, [8 x i8] %%r%d_imm_val, 1\n", 
+                result_reg, result_reg, result_reg);
+      llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_add(%%LuaValue %%r%d, %%LuaValue %%r%d_imm_final)\n", 
+                result_reg, b, result_reg);
+      break;
+    }
+    case OP_CALL: {
+      int a = GETARG_A(i);
+      int b = GETARG_B(i);
+      int c = GETARG_C(i);
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  ; TODO: Implement function call with %d args, %d results\n", b-1, c-1);
+      llvm_emit(ctx, "  %%r%d = load %%LuaValue, %%LuaValue* %%r%d\n", result_reg, a);
+      break;
+    }
+    case OP_NEWTABLE: {
+      int result_reg = ctx->reg_counter++;
+      llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_newtable()\n", result_reg);
+      break;
+    }
     case OP_RETURN: {
       int b = GETARG_B(i);
       if (b == 1) {
@@ -254,6 +304,8 @@ static void llvm_emit_runtime_decls(LLVMContext *ctx) {
   llvm_emit(ctx, "declare %%LuaValue @lua_sub(%%LuaValue, %%LuaValue)\n");
   llvm_emit(ctx, "declare %%LuaValue @lua_mul(%%LuaValue, %%LuaValue)\n");
   llvm_emit(ctx, "declare %%LuaValue @lua_div(%%LuaValue, %%LuaValue)\n");
+  llvm_emit(ctx, "declare %%LuaValue @lua_newtable()\n");
+  llvm_emit(ctx, "declare %%LuaValue @lua_call(%%LuaValue, i32, %%LuaValue*)\n");
   llvm_emit(ctx, "\n");
 }
 
