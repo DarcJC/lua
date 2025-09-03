@@ -271,12 +271,70 @@ static void llvm_emit_instruction(LLVMContext *ctx, Instruction i, int pc) {
       break;
     }
     case OP_CALL: {
-      int a = GETARG_A(i);
+      int call_a = GETARG_A(i);
       int b = GETARG_B(i);
       int c = GETARG_C(i);
-      int result_reg = ctx->reg_counter++;
-      llvm_emit(ctx, "  ; TODO: Implement function call with %d args, %d results\n", b-1, c-1);
-      llvm_emit(ctx, "  %%r%d = load %%LuaValue, %%LuaValue* %%r%d\n", result_reg, a);
+      int nargs = (b == 0) ? -1 : b - 1;  /* -1 means variable args */
+      int nresults = (c == 0) ? -1 : c - 1;  /* -1 means variable results */
+      int func_reg = ctx->reg_counter++;
+      int args_reg, arg_ptr_reg, arg_val_reg, args_cast_reg, result_reg;
+      int arg;
+      
+      /* Load function to call from register A */
+      llvm_emit(ctx, "  %%r%d = load %%LuaValue, %%LuaValue* %%r%d\n", func_reg, call_a);
+      
+      if (nargs >= 0) {
+        /* Fixed number of arguments - create argument array */
+        if (nargs > 0) {
+          /* Allocate array for arguments */
+          args_reg = ctx->reg_counter++;
+          llvm_emit(ctx, "  %%r%d = alloca [%d x %%LuaValue]\n", args_reg, nargs);
+          
+          /* Store arguments in array */
+          for (arg = 0; arg < nargs; arg++) {
+            arg_ptr_reg = ctx->reg_counter++;
+            arg_val_reg = ctx->reg_counter++;
+            llvm_emit(ctx, "  %%r%d = getelementptr [%d x %%LuaValue], [%d x %%LuaValue]* %%r%d, i32 0, i32 %d\n", 
+                      arg_ptr_reg, nargs, nargs, args_reg, arg);
+            llvm_emit(ctx, "  %%r%d = load %%LuaValue, %%LuaValue* %%r%d\n", arg_val_reg, call_a + 1 + arg);
+            llvm_emit(ctx, "  store %%LuaValue %%r%d, %%LuaValue* %%r%d\n", arg_val_reg, arg_ptr_reg);
+          }
+          
+          /* Cast to %LuaValue* for the call */
+          args_cast_reg = ctx->reg_counter++;
+          llvm_emit(ctx, "  %%r%d = bitcast [%d x %%LuaValue]* %%r%d to %%LuaValue*\n", 
+                    args_cast_reg, nargs, args_reg);
+          
+          /* Make the function call */
+          result_reg = ctx->reg_counter++;
+          llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_call(%%LuaValue %%r%d, i32 %d, %%LuaValue* %%r%d)\n", 
+                    result_reg, func_reg, nargs, args_cast_reg);
+          
+          /* Store result in register A if we expect results */
+          if (nresults != 0) {
+            llvm_emit(ctx, "  store %%LuaValue %%r%d, %%LuaValue* %%r%d\n", result_reg, call_a);
+          }
+        } else {
+          /* No arguments */
+          result_reg = ctx->reg_counter++;
+          llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_call(%%LuaValue %%r%d, i32 0, %%LuaValue* null)\n", 
+                    result_reg, func_reg);
+          
+          if (nresults != 0) {
+            llvm_emit(ctx, "  store %%LuaValue %%r%d, %%LuaValue* %%r%d\n", result_reg, call_a);
+          }
+        }
+      } else {
+        /* Variable arguments - simplified version for now */
+        llvm_emit(ctx, "  ; Variable argument function call (simplified)\n");
+        result_reg = ctx->reg_counter++;
+        llvm_emit(ctx, "  %%r%d = call %%LuaValue @lua_call(%%LuaValue %%r%d, i32 0, %%LuaValue* null)\n", 
+                  result_reg, func_reg);
+        
+        if (nresults != 0) {
+          llvm_emit(ctx, "  store %%LuaValue %%r%d, %%LuaValue* %%r%d\n", result_reg, call_a);
+        }
+      }
       break;
     }
     case OP_NEWTABLE: {
